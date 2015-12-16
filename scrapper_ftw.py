@@ -68,6 +68,6 @@ anchor_sel = CSSSelector('a')
 h3_titles = [get_item(item) for item in all_items[0:50]]
 
 with open('movies.csv', mode='wb') as csvfile:
-    moviewriter = UnicodeWriter(csvfile, delimiter = '\t', quoting=csv.QUOTE_ALL)
+    moviewriter = UnicodeWriter(csvfile, quoting=csv.QUOTE_ALL)
     for item in h3_titles:
         moviewriter.writerow(item)

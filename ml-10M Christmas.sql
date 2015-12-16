@@ -105,7 +105,7 @@ ORDER BY name;
 
 SELECT * FROM movies
 WHERE UPPER(title)
-  LIKE UPPER("Snowman, The%");
+  LIKE UPPER("%Joyeux%");
 
 UPDATE christmas
 SET name = REPLACE(name,'A Charlie Brown Christmas','Charlie Brown Christmas, A');
@@ -183,6 +183,115 @@ SELECT *
 	- Revisit the web scraping
 	- Keep year and name together
 	- Convert to UTC-8 and export that into SQL
-	- Change the A and The movies
+*/
+
+DROP TABLE christmas;
+CREATE TABLE christmas (
+	name TEXT
+);
+
+LOAD DATA LOCAL INFILE '/Users/jburchell/Documents/MovieLens/christmas_movies.txt' 
+	INTO TABLE christmas;
+
+SELECT * FROM christmas;
+
+SELECT * 
+	FROM christmas 
+	INNER JOIN movies
+	ON UPPER(movies.title)
+  		LIKE CONCAT('%', UPPER(christmas.name), '%');
+  		
+SELECT COUNT(name) 
+FROM (
+	SELECT * 
+	FROM christmas 
+	INNER JOIN movies
+	ON UPPER(movies.title)
+  		LIKE CONCAT('%', UPPER(christmas.name), '%')
+) AS counts;
+
+-- Managed to match 35 of the 50 movies!
+
+-- Now that we have the sublist of movies, let's start looking at average ratings
+
+SELECT * FROM ratingsdata;
+
+SELECT AVG(ratingsdata.rating)
+FROM ratingsdata
+INNER JOIN movies
+ON movies.itemid = ratingsdata.itemid
+WHERE (
+	SELECT movies.itemid 
+	FROM christmas 
+	INNER JOIN movies
+	ON UPPER(movies.title)
+  		LIKE CONCAT('%', UPPER(christmas.name), '%')
+)
+GROUP BY movies.title;
+
+DROP TABLE christmasids;
+CREATE TABLE christmasids (
+	itemid INT
+);
+
+INSERT INTO christmasids
+SELECT movies.itemid
+FROM christmas 
+INNER JOIN movies
+ON UPPER(movies.title)
+	LIKE CONCAT('%', UPPER(christmas.name), '%');
+
+SELECT movies.title, AVG(ratingsdata.rating) AS "Average rating"
+FROM movies
+INNER JOIN ratingsdata
+ON movies.itemid = ratingsdata.itemid
+WHERE movies.itemid IN (
+	SELECT christmasids.itemid
+	FROM movies
+	INNER JOIN christmasids
+	ON movies.itemid = christmasids.itemid)
+GROUP BY movies.title;
+
+SELECT * 
+FROM (
+	SELECT movies.title AS "Title", AVG(ratingsdata.rating) AS avgr
+	FROM movies
+	INNER JOIN ratingsdata
+	ON movies.itemid = ratingsdata.itemid
+	WHERE movies.itemid IN (
+		SELECT christmasids.itemid
+		FROM movies
+		INNER JOIN christmasids
+			ON movies.itemid = christmasids.itemid)
+	GROUP BY movies.title
+) AS christmasratings
+ORDER BY avgr DESC;
+
+SELECT * 
+FROM (
+	SELECT movies.title AS "Title", AVG(ratingsdata.rating) AS avgr 
+	FROM movies
+	INNER JOIN ratingsdata
+	ON movies.itemid = ratingsdata.itemid
+	WHERE movies.itemid IN (
+		SELECT christmasids.itemid
+		FROM movies
+		INNER JOIN christmasids
+			ON movies.itemid = christmasids.itemid) 
+	AND MONTH(FROM_UNIXTIME(ratingsdata.timestamp)) = 12
+	GROUP BY movies.title
+) AS christmasratings
+ORDER BY avgr DESC
+LIMIT 15;
 
 
+SELECT movies.title AS "Title", AVG(ratingsdata.rating) AS avgr
+FROM movies
+INNER JOIN ratingsdata
+ON movies.itemid = ratingsdata.itemid
+WHERE movies.itemid IN (
+	SELECT christmasids.itemid
+	FROM movies
+	INNER JOIN christmasids
+		ON movies.itemid = christmasids.itemid)
+GROUP BY movies.title;
